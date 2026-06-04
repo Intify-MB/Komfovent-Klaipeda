@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Komfovent — Patalpų nuomos opcijos</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f7;
+  --panel:#ffffff;
+  --card:#ffffff;
+  --card-hover:#f5f7ff;
+  --border:#dde3f0;
+  --border2:#c5cfe8;
+  --accent:#1a5fd4;
+  --accent-light:#e8efff;
+  --ok:#1a8c4e;
+  --ok-bg:#e6f4ed;
+  --warn:#e07b00;
+  --danger:#d63b3b;
+  --danger-bg:#fdeaea;
+  --text:#1a2035;
+  --text2:#6272a0;
+  --text3:#aab4cc;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+  --sh:0 1px 3px rgba(26,45,100,.08),0 2px 8px rgba(26,45,100,.06);
+}
+html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh}
+
+/* TOPBAR */
+.topbar{
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:11px 20px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:300;gap:10px;flex-wrap:wrap;
+  box-shadow:0 1px 4px rgba(26,45,100,.07);
+}
+.brand{font-family:var(--mono);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+.brand b{color:var(--accent)}
+.filters{display:flex;gap:5px;flex-wrap:wrap}
+.fbtn{background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.05em}
+.fbtn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.fbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* STRIP */
+.strip{
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:12px 16px;display:flex;gap:8px;overflow-x:auto;
+  scrollbar-width:thin;scrollbar-color:var(--border2) transparent;
+}
+.strip::-webkit-scrollbar{height:4px}
+.strip::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.scard{
+  flex:0 0 152px;background:var(--card);border:1px solid var(--border);
+  border-radius:7px;overflow:hidden;cursor:pointer;
+  transition:all .15s;position:relative;box-shadow:var(--sh);
+}
+.scard:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 14px rgba(26,95,212,.13)}
+.scard.active{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(26,95,212,.2),var(--sh)}
+.scard.hidden{display:none}
+.scard-img{width:100%;height:82px;object-fit:cover;display:block;background:var(--border)}
+.scard-img-ph{width:100%;height:82px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--text3)}
+.scard-body{padding:8px 9px}
+.scard-num{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:2px}
+.scard-addr{font-size:11px;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:4px}
+.scard-score{font-family:var(--mono);font-size:18px;font-weight:500;line-height:1;margin-bottom:3px}
+.scard-bar{height:3px;background:var(--border);border-radius:2px;margin-bottom:4px}
+.scard-bar-fill{height:100%;border-radius:2px}
+.scard-meta{font-family:var(--mono);font-size:9px;color:var(--text2)}
+.scard-tags{display:flex;gap:3px;margin-top:5px}
+.stag{font-family:var(--mono);font-size:8px;padding:2px 5px;border-radius:3px;font-weight:500}
+.stag-ok{background:var(--ok-bg);color:var(--ok)}
+.stag-no{background:var(--danger-bg);color:var(--danger)}
+.badge{position:absolute;top:6px;right:6px;font-family:var(--mono);font-size:8px;font-weight:600;padding:2px 6px;border-radius:3px}
+.badge-go{background:var(--ok-bg);color:var(--ok);border:1px solid #b8dfc9}
+.badge-nogo{background:var(--danger-bg);color:var(--danger);border:1px solid #f5c0c0}
+
+/* DETAIL */
+.detail{display:none;background:var(--bg);border-top:2px solid var(--accent)}
+.detail.open{display:block}
+
+/* DETAIL HEADER */
+.d-head{
+  background:var(--panel);padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+.d-num{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.08em}
+.d-addr{font-size:20px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:2px}
+.d-loc{font-size:12px;color:var(--text2)}
+.d-score-num{font-family:var(--mono);font-size:42px;font-weight:500;line-height:1;text-align:right}
+.d-score-lbl{font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;text-align:right}
+
+/* MAIN CONTENT — 3 kolonos */
+.d-body{
+  display:grid;
+  grid-template-columns:380px 1fr 300px;
+  gap:0;
+  min-height:480px;
+}
+
+/* KAIRĖ — galerija */
+.d-gallery{
+  padding:16px;
+  border-right:1px solid var(--border);
+  background:var(--panel);
+}
+.g-main{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;display:block;cursor:zoom-in;margin-bottom:8px;background:var(--border)}
+.g-main-ph{width:100%;aspect-ratio:16/10;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px;border:1px solid var(--border)}
+.g-thumbs{display:flex;gap:5px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.g-thumbs::-webkit-scrollbar{height:3px}
+.g-thumb{flex:0 0 68px;height:46px;object-fit:cover;border-radius:4px;cursor:pointer;opacity:.5;border:2px solid transparent;transition:all .15s}
+.g-thumb:hover{opacity:.85}
+.g-thumb.active{opacity:1;border-color:var(--accent)}
+
+/* VIDURIS — info lentelė */
+.d-info{
+  padding:16px 20px;
+  border-right:1px solid var(--border);
+  background:var(--panel);
+  overflow-y:auto;
+}
+.sec{font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:10px;margin-top:14px}
+.sec:first-child{margin-top:0}
+.itbl{width:100%;border-collapse:collapse}
+.itbl td{padding:6px 0;font-size:12px;border-bottom:1px solid var(--border)}
+.itbl tr:last-child td{border-bottom:none}
+.itbl td:first-child{color:var(--text2);padding-right:12px}
+.itbl td:last-child{text-align:right;font-family:var(--mono);font-size:11px;font-weight:500;color:var(--text)}
+.va{color:var(--accent)!important;font-size:13px!important;font-weight:600!important}
+.vok{color:var(--ok)!important;font-weight:600!important}
+.vno{color:var(--danger)!important;font-weight:600!important}
+.notes{background:var(--bg);border-left:3px solid var(--accent);border-radius:4px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.7;margin-top:12px}
+
+/* DEŠINĖ — score + žemėlapis */
+.d-right{
+  background:var(--panel);
+  display:flex;flex-direction:column;
+}
+.d-right-top{padding:16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sbar-row{margin-bottom:8px}
+.sbar-top{display:flex;justify-content:space-between;margin-bottom:3px}
+.sbar-name{font-family:var(--mono);font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
+.sbar-pts{font-family:var(--mono);font-size:9px;color:var(--text2)}
+.sbar-track{height:4px;background:var(--border);border-radius:2px}
+.sbar-fill{height:100%;border-radius:2px;transition:width .5s .1s}
+#dmap{flex:1;min-height:280px}
+
+/* LIGHTBOX */
+.lbox{display:none;position:fixed;inset:0;background:rgba(10,15,30,.94);z-index:999;align-items:center;justify-content:center}
+.lbox.open{display:flex}
+.lbox img{max-width:90vw;max-height:90vh;border-radius:5px;object-fit:contain}
+.lbox-x{position:fixed;top:18px;right:22px;color:#fff;font-size:22px;cursor:pointer;background:none;border:none;opacity:.7}
+.lbox-x:hover{opacity:1}
+.lbox-p,.lbox-n{position:fixed;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:20px;padding:9px 14px;cursor:pointer;border-radius:5px}
+.lbox-p{left:14px}.lbox-n{right:14px}
+
+@media(max-width:900px){
+  .d-body{grid-template-columns:1fr;grid-template-rows:auto}
+  .d-gallery,.d-info,.d-right{border-right:none;border-bottom:1px solid var(--border)}
+  #dmap{min-height:240px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">KOMFOVENT · <b>Patalpų nuomos opcijos</b> · Klaipėda 2026–2027</div>
+  <div class="filters">
+    <button class="fbtn on" onclick="filt('all',this)">Visos</button>
+    <button class="fbtn" onclick="filt('vilk',this)">Vilkikai ✓</button>
+    <button class="fbtn" onclick="filt('ivaz',this)">Įvažiavimas ✓</button>
+    <button class="fbtn" onclick="filt('plotas',this)">600–800 m²</button>
+    <button class="fbtn" onclick="filt('kaina',this)">≤ €8/m²</button>
+    <button class="fbtn" onclick="filt('2026',this)">2026</button>
+  </div>
+</div>
+
+<div class="strip" id="strip"></div>
+
+<div class="detail" id="detail">
+  <div class="d-head">
+    <div>
+      <div class="d-num" id="d-num"></div>
+      <div class="d-addr" id="d-addr"></div>
+      <div class="d-loc" id="d-loc"></div>
+    </div>
+    <div>
+      <div class="d-score-num" id="d-score"></div>
+      <div class="d-score-lbl">tinkamumo score</div>
+    </div>
+  </div>
+  <div class="d-body">
+    <!-- KAIRĖ: galerija -->
+    <div class="d-gallery">
+      <div id="d-gal-main"></div>
+      <div class="g-thumbs" id="d-thumbs"></div>
+    </div>
+    <!-- VIDURIS: info -->
+    <div class="d-info">
+      <div class="sec">Komercinės sąlygos</div>
+      <table class="itbl" id="d-tbl"></table>
+      <div class="notes" id="d-notes"></div>
+    </div>
+    <!-- DEŠINĖ: score + žemėlapis -->
+    <div class="d-right">
+      <div class="d-right-top">
+        <div class="sec" style="margin-top:0">Score struktūra</div>
+        <div id="d-bars"></div>
+      </div>
+      <div id="dmap"></div>
+    </div>
+  </div>
+</div>
+
+<div class="lbox" id="lbox" onclick="lbClose(event)">
+  <button class="lbox-x" onclick="document.getElementById('lbox').classList.remove('open')">✕</button>
+  <button class="lbox-p" onclick="lbNav(-1);event.stopPropagation()">‹</button>
+  <img id="lbox-img" src="" alt="">
+  <button class="lbox-n" onclick="lbNav(1);event.stopPropagation()">›</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const BASE='https://raw.githubusercontent.com/Intify-MB/Komfovent-Klaipeda/main/';
+const D=[
+  {id:1,addr:'Tilžės g. 86',loc:'Klaipėda — Verslo parkas A klasė',
+   c:[55.701969,21.196916],plotas:952,k:5.50,ex:0.76,bud:5966,term:60,isi:'2027-01',
+   notes:'2 vartai grindų lygio 3×4,3 m. Vilkikas įvažiuoja į vidų. ~40 m manevro zona priešais vartus. Šildymas kalorifėkliais. A klasės verslo parkas, saulės kolektoriai ant stogo.',
+   iv:true,vl:true,
+   ph:['Tilžės g. 86 1.JPG','Tilžės g. 86 2.JPG','Tilžės g. 86 3.JPG']},
+  {id:2,addr:'Pramonės g. 33',loc:'Klaipėda — Flexi logistikos parkas',
+   c:[55.682665,21.211393],plotas:1125,k:6.00,ex:0.60,bud:7425,term:60,isi:'2027-04',
+   notes:'2 vartai grindų lygio 3×4,3 m. Vilkikas neįvažiuoja į vidų. ~10 m manevro zona. Naujas Flexi parko pastatas.',
+   iv:false,vl:true,
+   ph:['Flexi1 1.JPG','Flexi1 2.JPG','Flexi1 3.JPG','Flexi1 4.JPG','Flexi1 5.JPG','Flexi1 6.JPG','Flexi1 7.jpg']},
+  {id:3,addr:'Tilžės g. 74',loc:'Klaipėda — Pramonės zona',
+   c:[55.703498,21.183231],plotas:864,k:6.00,ex:0.80,bud:5875,term:60,isi:'2026-09',
+   notes:'1 vartai grindų lygio 4×4,3 m. Vilkikas įvažiuoja į vidų. Ankstyviausias galimas įsikėlimas — 2026 rugsėjis.',
+   iv:true,vl:true,
+   ph:['Tilzes 74 1.jpg','Tilzes 74 2.jpg','Tilzes 74 3.jpg']},
+  {id:4,addr:'Liepų g. 80',loc:'Klaipėda — Šiaurinė zona (naujas projektas)',
+   c:[55.728784,21.180276],plotas:750,k:11.00,ex:1.00,bud:9000,term:60,isi:'2026-09',
+   notes:'1 vartai grindų lygio 3×3 m. Vilkikas neįvažiuoja į vidų. Naujas statybos projektas. Aukšta kaina.',
+   iv:false,vl:false,
+   ph:['Liepu80 1.jpg','Liepu80 2.jpg','Liepu80 3.jpg','Liepu80 5.jpg']},
+  {id:5,addr:'Pramonės g. 8',loc:'Klaipėda — Verslo parkas',
+   c:[55.693801,21.194500],plotas:520,k:8.00,ex:0.80,bud:4576,term:60,isi:'2027-01',
+   notes:'1 vartai grindų lygio 4×4,3 m. Vilkikas įvažiuoja į vidų. Klaipėdos verslo parkas. Plotas 520 m² — mažesnis nei poreikis.',
+   iv:true,vl:true,
+   ph:['Pramones 8 1.JPG','Pramones 8 2.jpg','Pramones 8 3.jpg']},
+  {id:6,addr:'Plieno g. 2',loc:'Klaipėda — Pietinė pramonės zona',
+   c:[55.673736,21.199270],plotas:850,k:6.00,ex:0.60,bud:5610,term:60,isi:'2027-01',
+   notes:'2 vartai grindų lygio 3×4,3 m. Vilkikas įvažiuoja į vidų. Göllner Spedition kompleksas. Geras privažiavimas.',
+   iv:true,vl:true,
+   ph:['Plieno 2 1.JPG','Plieno 2 2.JPG','Plieno 2 3.JPG','Plieno 2 4.JPG','Plieno g. 2 5.jpg','Plieno g. 2 6.jpg']}
+];
+
+function cs(o){
+  let s=0;
+  if(o.vl)s+=30;if(o.iv)s+=25;
+  if(o.k<=7)s+=20;else if(o.k<=9)s+=10;
+  if(Math.abs(o.plotas-700)<=150)s+=15;else if(Math.abs(o.plotas-700)<=300)s+=8;
+  if(o.isi<='2026-12')s+=10;
+  return Math.min(s,100);
+}
+function sc(s){return s>=75?'#1a5fd4':s>=55?'#e07b00':'#d63b3b'}
+D.forEach(o=>o.score=cs(o));
+D.sort((a,b)=>b.score-a.score);
+
+const strip=document.getElementById('strip');
+D.forEach(o=>{
+  const go=o.vl&&o.iv;
+  const el=document.createElement('div');
+  el.className='scard';
+  el.dataset.id=o.id;el.dataset.vl=o.vl;el.dataset.iv=o.iv;
+  el.dataset.plotas=o.plotas;el.dataset.k=o.k;el.dataset.isi=o.isi;
+  const img=o.ph.length
+    ?`<img class="scard-img" src="${BASE}${encodeURIComponent(o.ph[0])}" loading="lazy" onerror="this.outerHTML='<div class=\\'scard-img-ph\\'>—</div>'">`
+    :`<div class="scard-img-ph">—</div>`;
+  el.innerHTML=`${img}
+    <div class="badge ${go?'badge-go':'badge-nogo'}">${go?'GO':'NO GO'}</div>
+    <div class="scard-body">
+      <div class="scard-num">Op-0${o.id}</div>
+      <div class="scard-addr">${o.addr}</div>
+      <div class="scard-score" style="color:${sc(o.score)}">${o.score}<span style="font-size:10px;color:var(--text3)">/10</span></div>
+      <div class="scard-bar"><div class="scard-bar-fill" style="width:${o.score}%;background:${sc(o.score)}"></div></div>
+      <div class="scard-meta">${o.plotas} m² · €${o.k.toFixed(2)}/m²</div>
+      <div class="scard-tags">
+        <span class="stag ${o.vl?'stag-ok':'stag-no'}">vilk</span>
+        <span class="stag ${o.iv?'stag-ok':'stag-no'}">ivaz</span>
+      </div>
+    </div>`;
+  el.addEventListener('click',()=>openD(o.id));
+  strip.appendChild(el);
+});
+
+let dmap=null,dmM=null,curPh=[],curIdx=0,curId=null;
+
+function openD(id){
+  if(curId===id)return;curId=id;
+  const o=D.find(x=>x.id===id);
+  document.querySelectorAll('.scard').forEach(c=>c.classList.toggle('active',+c.dataset.id===id));
+  document.getElementById('d-num').textContent=`Op-0${o.id}`;
+  document.getElementById('d-addr').textContent=o.addr;
+  document.getElementById('d-loc').textContent=o.loc;
+  const sEl=document.getElementById('d-score');
+  sEl.textContent=o.score;sEl.style.color=sc(o.score);
+  curPh=o.ph;curIdx=0;renderGal(o,0);
+  const it=(o.k+o.ex).toFixed(2);
+  document.getElementById('d-tbl').innerHTML=`
+    <tr><td>Plotas</td><td>${o.plotas} m²</td></tr>
+    <tr><td>Nuomos kaina</td><td>€${o.k.toFixed(2)}/m²</td></tr>
+    <tr><td>Eksploatacijos mokestis</td><td>€${o.ex.toFixed(2)}/m²</td></tr>
+    <tr><td>Komunaliniai</td><td>pagal faktą</td></tr>
+    <tr><td>Iš viso (be kom.)</td><td class="va">€${it}/m²</td></tr>
+    <tr><td>Biudžetas/mėn.</td><td class="va">€${o.bud.toLocaleString('lt')}</td></tr>
+    <tr><td>Nuomos terminas</td><td>${o.term} mėn.</td></tr>
+    <tr><td>Įsikėlimas</td><td>${o.isi}</td></tr>
+    <tr><td>Vilkikų privažiavimas</td><td class="${o.vl?'vok':'vno'}">${o.vl?'✓ Taip':'✗ Ne'}</td></tr>
+    <tr><td>Įvažiavimas į vidų</td><td class="${o.iv?'vok':'vno'}">${o.iv?'✓ Taip':'✗ Ne'}</td></tr>`;
+  document.getElementById('d-notes').textContent=o.notes;
+  const bars=[
+    {n:'Vilkikų privažiavimas',p:o.vl?30:0,m:30},
+    {n:'Įvažiavimas į vidų',p:o.iv?25:0,m:25},
+    {n:'Kainos atitikimas',p:o.k<=7?20:o.k<=9?10:0,m:20},
+    {n:'Ploto atitikimas',p:Math.abs(o.plotas-700)<=150?15:Math.abs(o.plotas-700)<=300?8:0,m:15},
+    {n:'Įsikėlimo terminas',p:o.isi<='2026-12'?10:0,m:10},
+  ];
+  document.getElementById('d-bars').innerHTML=bars.map(b=>{
+    const pct=b.m?b.p/b.m*100:0;
+    const c=b.p>=b.m?'#1a5fd4':b.p>0?'#e07b00':'#d63b3b';
+    return `<div class="sbar-row">
+      <div class="sbar-top"><span class="sbar-name">${b.n}</span><span class="sbar-pts">${b.p}/${b.m}</span></div>
+      <div class="sbar-track"><div class="sbar-fill" style="width:${pct}%;background:${c}"></div></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('detail').classList.add('open');
+
+  // Map - init once, then move
+  setTimeout(()=>{
+    if(!dmap){
+      dmap=L.map('dmap',{center:o.c,zoom:14,zoomControl:true});
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19}).addTo(dmap);
+    } else {
+      dmap.setView(o.c,14);
+      if(dmM)dmap.removeLayer(dmM);
+    }
+    const ic=L.divIcon({className:'',
+      html:`<div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;background:#e53535;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #e53535;flex-shrink:0"></div><div style="background:#fff;color:#1a2035;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 9px;border-radius:4px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18);font-weight:500;border:1px solid #dde3f0">${o.addr}</div></div>`,
+      iconAnchor:[7,7]});
+    dmM=L.marker(o.c,{icon:ic}).addTo(dmap);
+    dmap.invalidateSize();
+  },50);
+}
+
+function renderGal(o,idx){
+  const m=document.getElementById('d-gal-main');
+  const t=document.getElementById('d-thumbs');
+  if(!o.ph.length){
+    m.innerHTML=`<div class="g-main-ph">Nuotraukos bus pridėtos</div>`;
+    t.innerHTML='';return;
+  }
+  m.innerHTML=`<img class="g-main" src="${BASE}${encodeURIComponent(o.ph[idx])}" onclick="lbOpen(${idx})" onerror="this.outerHTML='<div class=\\'g-main-ph\\'>—</div>'">`;
+  t.innerHTML=o.ph.map((p,i)=>`<img class="g-thumb${i===idx?' active':''}" src="${BASE}${encodeURIComponent(p)}" loading="lazy" onclick="swPh(${i})" onerror="this.style.display='none'">`).join('');
+}
+function swPh(i){const o=D.find(x=>x.id===curId);if(!o)return;curIdx=i;renderGal(o,i)}
+function lbOpen(i){curIdx=i;document.getElementById('lbox-img').src=BASE+encodeURIComponent(curPh[i]);document.getElementById('lbox').classList.add('open')}
+function lbClose(e){if(e.target===document.getElementById('lbox'))document.getElementById('lbox').classList.remove('open')}
+function lbNav(d){curIdx=(curIdx+d+curPh.length)%curPh.length;document.getElementById('lbox-img').src=BASE+encodeURIComponent(curPh[curIdx])}
+
+function filt(type,btn){
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  document.querySelectorAll('.scard').forEach(c=>{
+    const vl=c.dataset.vl==='true',iv=c.dataset.iv==='true';
+    const pl=+c.dataset.plotas,k=+c.dataset.k,isi=c.dataset.isi;
+    let show=true;
+    if(type==='vilk')show=vl;else if(type==='ivaz')show=iv;
+    else if(type==='plotas')show=pl>=600&&pl<=800;else if(type==='kaina')show=k<=8;
+    else if(type==='2026')show=isi<='2026-12';
+    c.classList.toggle('hidden',!show);
+  });
+}
+openD(D[0].id);
+</script>
+</body>
+</html>
